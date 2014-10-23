@@ -6,7 +6,9 @@ import scala.util.Random
 case class Sofmax(
   val softmaxTempNumerator: Double = 1.0,
 
-  /** Maps from arm name to ratio of numerator to denominator. */
+  /** Map arm names to tuple of (<ratio>, (<numerator>, <denominator>))
+    for each arm's counts.
+    */
   private var armRatioValues: Map[String, (Double, (Double, Double))] = Map()) extends Algorithm {
 
   def softmaxTemperature(_counts: Double): Double = {
@@ -16,7 +18,7 @@ case class Sofmax(
     }
 
     /** Add 1 and a small fractional value
-      to prevent infinity and divide by zero errors and numbers. */
+      to prevent divide by zero errors and values >= 1 */
     this.softmaxTempNumerator / scala.math.log(counts + (1 + .1e-7))
   }
 
