@@ -31,4 +31,28 @@ object ListUtils {
       }
     }
   }
+
+  def categoricalChoice(probabilities: List[Double], items: List[String]): String = {
+    /**
+      Select an item from a list, `items`, using a corresponding
+      set of probabilities, probabilities`.
+
+      Args:
+      - probabilities: a list of probabilities, corresponding to `items`
+      - items: items to be selected.
+
+      Returns an item selected from `items`.
+
+      */
+    val rand = Random.nextDouble()
+    var cum_prob: Double = 0.0
+
+    for ((prob, idx) <- probabilities.zipWithIndex) {
+      cum_prob += prob
+      if (cum_prob > rand) {
+        return items(idx)
+      }
+    }
+    items.last
+  }
 }
