@@ -38,6 +38,7 @@ curl -XDELETE 'localhost:7070/myNewExperimentWithArms/arm1'
 ################# FEEDBACK
 # Update a condition with a specific reward
 curl -XPOST 'localhost:7070/myNewExperimentWithArms/anotherArm?reward=9.3'
+
 # ...or without one (model's provide defaults)!
 curl -XPOST 'localhost:7070/myNewExperimentWithArms/anotherArm'
 

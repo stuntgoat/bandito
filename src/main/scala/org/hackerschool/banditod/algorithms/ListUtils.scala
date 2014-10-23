@@ -19,7 +19,7 @@ object ListUtils {
     }
   }
 
-  /** Used to select a random index from a List[Double]*/
+  /** Used to select a random index from the maximum value(s) in a List[Double]. */
   def randMaxIndex(items: List[Double]): Int = {
     items.length match {
       case 0 => -1
