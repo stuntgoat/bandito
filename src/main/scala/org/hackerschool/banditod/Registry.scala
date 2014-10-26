@@ -1,20 +1,18 @@
 package org.hackerschool.banditod
 
-import org.hackerschool.banditod.algorithms.{Algorithm, EpsilonGreedy}
+import org.hackerschool.banditod.algorithms.{Algorithm, EpsilonGreedy, Softmax}
 
-
-case class Experiment(name: String, algorithm: Algorithm) 
-
-object Experiment {
-  def fromString(name: String): Experiment = {
-    val algorithm = EpsilonGreedy()
-    Experiment(name, algorithm)
-  }
-}
 
 object Registry {
   private var _experiments: Map[String, Experiment] = Map()
-  val algorithms = Map("EpsilonGreedy" -> EpsilonGreedy)
+
+  def algorithms[T >: Algorithm](name: String): Option[T] = {
+    name match {
+      case "EpsilonGreedy" => Some(new EpsilonGreedy)
+      case "Softmax" => Some(new Softmax)
+      case _ => None
+    }
+  }
 
   def register(experiment: Experiment): Boolean = {
     if (_experiments contains experiment.name) {

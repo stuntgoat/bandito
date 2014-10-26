@@ -1,14 +1,18 @@
 package org.hackerschool.banditod.algorithms
 
+import scala.util.Random
+
 
 case class Softmax(
-  val softmaxTempNumerator: Double = 1.0,
+  var names: List[String] = List[String](),
+  var rewards: List[Double] = List[Double](),
+  var pulls: List[Double] = List[Double](),
+  var ratios: List[Double] = List[Double]()) extends Algorithm {
 
-  /**
-    Map arm names to tuple of (<ratio>, (<numerator>, <denominator>))
-    for each arm's counts.
-    */
-  private var armRatioValues: Map[String, (Double, (Double, Double))] = Map()) extends Algorithm {
+  private var minPullsOK: Boolean = false
+
+  private var MIN_PULLS = 20
+  private var softmaxTempNumerator: Double = 0
 
   // Holds the total number of pulls to date.
   private var totalDenominator: Double = 0
@@ -27,6 +31,11 @@ case class Softmax(
     this.softmaxTempNumerator / scala.math.log(count + (1 + .1e-7))
   }
 
+  def equalProbs(ratios: List[Double]): List[Double] = {
+    val rlen = ratios.length
+    ratios.map(x => {1.0 / rlen.toDouble})
+  }
+
   def probsFromRatios(ratios: List[Double], temperature: Double): List[Double] = {
     /**
       Given an iterable of conversions and a temperature, generate
@@ -37,32 +46,48 @@ case class Softmax(
       - temp: an 'annealing temperature'
 
       */
-    val denominator = ratios.map(x => scala.math.exp(x / temperature)).sum
-    ratios.map(x => scala.math.exp(x / temperature) / denominator)
+    val rlen: Int = ratios.length
+    rlen match {
+      case 0 => List()
+      case 1 => List(1.0)
+      case _ => {
+        val denominator = ratios.map(x => scala.math.exp(x / temperature)).sum
+        ratios.map(x => scala.math.exp(x / temperature) / denominator)
+      }
+    }
   }
+
   /**
     Implement the Algorithm abstract class.
 
     */
 
   def selectArm(): String = {
-    if (this.armRatioValues.size == 1) {
-      val arm: String = this.armRatioValues.keys.head
-      // Increment arm pull.
-      this.totalDenominator += 1
+    val lenArms = this.names.length
+
+    if (lenArms == 1) {
+      val arm: String = this.names.head
+      this.updatePulls(arm, 1)
+      return arm
+    } else if (lenArms == 0) {
+      return ""
+    }
+
+    /**
+      If we have not acquired the minimum number of pulls for each arm,
+      select a random arm.
+      */
+    if (this.minPullsOK == false) {
+      val rIndex = Random.nextInt(lenArms)
+      val arm: String = this.names(rIndex)
+      this.updatePulls(arm, 1)
       return arm
     }
 
-    var arms: List[String] = List()
-    var ratios: List[Double] = List()
-    for ((arm, values) <- this.armRatioValues.iterator) {
-      arms ::= arm
-      ratios ::= values._1
-    }
     val temperature: Double = this.softmaxTemperature(this.totalDenominator)
-    val probabilities: List[Double] = this.probsFromRatios(ratios, temperature)
-    val arm: String = ListUtils.categoricalChoice(probabilities, arms)
-    this.totalDenominator += 1
+    val probabilities: List[Double] = this.probsFromRatios(this.ratios, temperature)
+    val arm: String = ListUtils.categoricalChoice(probabilities, this.names)
+    this.updatePulls(arm, 1)
     arm
   }
 
@@ -70,45 +95,83 @@ case class Softmax(
     /** TODO*/
     ""
   }
-
-  def initialize(_names: List[String]) = {
-    /**
-      - Is this method needed since we initialize during the class instantiation?
-
-      */
-    for (name <- _names) {
+  def initialize(names: List[String]) = {
+    for (name <- names) {
       this.addArm(name)
     }
   }
 
+  def setTemp(temp: Double) = {this.softmaxTempNumerator = temp}
+
   def addArm(name: String): Unit = {
-    if (!this.armRatioValues.contains(name)) {
-      this.armRatioValues += name -> (0, (0, 0))
+    if (!this.names.contains(name)) {
+      /** Seed the arm with on pull and one */
+      this.totalDenominator += 1
+      this.rewards ::= 1
+      this.pulls ::= 1
+      this.ratios ::= 1
+      this.names ::= name
     }
   }
 
   def removeArm(name: String): Boolean = {
-    if (!this.armRatioValues.contains(name)) {
+    val armIdx = this.names.indexOf(name)
+    if (armIdx < 0) {
       return false
     }
-    this.armRatioValues -= name
+    this.names = this.names.take(armIdx) ++ this.names.drop(armIdx+1)
+    this.rewards = this.rewards.take(armIdx) ++ this.rewards.drop(armIdx+1)
+    this.pulls = this.pulls.take(armIdx) ++ this.pulls.drop(armIdx+1)
+    this.ratios = this.ratios.take(armIdx) ++ this.ratios.drop(armIdx+1)
     return true
   }
-  def updateReward(arm: String, reward: Double = 1): Boolean = {
-    /** TODO: */
-    val armValues = this.armRatioValues.get(arm)
-    if (!armValues.isEmpty) {
-      for ((ratio, (numerator, denominator)) <- armValues) {
-        val newNumerator = numerator + reward
-        if (denominator == 0) {
-          this.armRatioValues += arm -> (0, (newNumerator, denominator))
-        } else {
-          val newRatio = newNumerator / denominator
-          this.armRatioValues += arm -> (newRatio, (newNumerator, denominator))
-        }
-      }
-      return true
+
+  def updatePulls(arm: String, _pulls: Double = 1): Boolean = {
+    if (_pulls <= 0) {
+      return false
     }
-    false
+
+    val armIdx = this.names.indexOf(arm)
+    if (armIdx < 0) {
+      return false
+    }
+    val currentPulls = this.pulls(armIdx)
+    val currentRewards = this.rewards(armIdx)
+
+    val newDenominator = currentPulls + _pulls
+    val newRatio = currentRewards / newDenominator
+    this.totalDenominator += _pulls
+
+    this.ratios = this.ratios.updated(armIdx, newRatio)
+    this.pulls = this.pulls.updated(armIdx, newDenominator)
+    if (this.minPullsOK == false) {
+      val minPulls = this.pulls.min
+      if (minPulls >= this.MIN_PULLS) {
+        this.minPullsOK = true
+      }
+    }
+    return true
+  }
+
+
+
+  def updateReward(arm: String, reward: Double = 1): Boolean = {
+    if (reward <= 0) {
+      return false
+    }
+
+    val armIdx = this.names.indexOf(arm)
+    if (armIdx < 0) {
+      return false
+    }
+    val currentPulls = this.pulls(armIdx)
+    val currentRewards = this.rewards(armIdx) + reward
+
+    val newRatio = currentRewards / currentPulls
+
+    this.ratios = this.ratios.updated(armIdx, newRatio)
+    this.rewards = this.rewards.updated(armIdx, currentRewards)
+
+    return true
   }
 }

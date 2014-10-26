@@ -5,7 +5,7 @@
 curl -XPUT 'localhost:7070/myNewExperiment'
 
 # Create a new experiment with 3 conditions
-curl -XPUT 'localhost:7070/myNewExperimentWithArms?arms=arm1,anotherArm,aThirdArm'
+curl -XPUT 'localhost:7070/myNewExperimentWithArms?algorithm=Softmax'
 
 # Get some basic info back about model stats
 curl -XGET 'localhost:7070' | pjson

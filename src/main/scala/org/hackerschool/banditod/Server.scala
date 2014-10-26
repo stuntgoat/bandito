@@ -1,13 +1,14 @@
 package org.hackerschool.banditod
 
 import com.twitter.finatra._
+import org.hackerschool.banditod.algorithms.{EpsilonGreedy, Softmax}
 
 
 class ExperimentController extends Controller {
   /* STATUS */
   get("/") { request =>
     val status = Map("ok" -> "Bandito!",
-                     "algorithms" -> Registry.algorithms,
+                     "algorithms" -> List(EpsilonGreedy, Softmax),
                      "experiments" -> Registry.experiments)
     render.json(status).toFuture
   }
@@ -19,15 +20,34 @@ class ExperimentController extends Controller {
     val numArms = request.params.getOrElse("numArms", arms.length) // TODO
     val algorithmName = request.params.getOrElse("algorithm", "EpsilonGreedy")
 
-    val algorithm = Registry.algorithms(algorithmName)() // TODO: Parse some settings...
-    algorithm.initialize(arms)
+    // TODO: Parse some settings...
+    var algorithm = Registry.algorithms(algorithmName).get
+    algorithm match {
+      case _: EpsilonGreedy => {
+        algorithm.initialize(arms)
+      }
+      case _: Softmax => {
+        val temp = request.params.get("temp")
+        if (!temp.isEmpty) {
+          algorithm.initialize(arms)
+          algorithm.asInstanceOf[Softmax].setTemp(temp.get.toDouble)
+        } else {
+          algorithm.initialize(arms)
+        }
+      }
+      case _ => {
+        val status = Map("error" -> s"AlgorithmName[$algorithmName] not found.",
+          "status" -> 400)
+        return render.json(status).status(400).toFuture
+      }
+    }
 
     val experiment = Experiment(experimentName, algorithm)
     if (Registry.register(experiment)) {
       render.json(Map("acknowledged" -> true)).toFuture
     } else {
       val status = Map("error" -> s"ExperimentAlreadyExistsException[$experimentName] already exists.",
-                       "status" -> 400)
+        "status" -> 400)
       render.json(status).status(400).toFuture
     }
   }
