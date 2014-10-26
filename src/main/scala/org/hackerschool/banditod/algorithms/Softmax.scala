@@ -111,6 +111,19 @@ case class Softmax(
       rSubset ::= this.ratios(idx)
       pSubset ::= this.pulls(idx)
     }
+
+    /**
+      If we have not acquired the minimum number of pulls for each arm,
+      select a random arm.
+      */
+    if (this.minPullsOK == false) {
+      val rIndex = Random.nextInt(nSubset.length)
+      val arm: String = nSubset(rIndex)
+      this.updatePulls(arm, 1)
+      return arm
+    }
+
+
     val temperature: Double = this.softmaxTemperature(pSubset.sum)
     val probabilities: List[Double] = this.probsFromRatios(rSubset, temperature)
     val arm: String = ListUtils.categoricalChoice(probabilities, nSubset)
