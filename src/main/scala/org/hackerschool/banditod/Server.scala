@@ -38,7 +38,7 @@ class ExperimentController extends Controller {
       case _ => {
         val status = Map("error" -> s"AlgorithmName[$algorithmName] not found.",
           "status" -> 400)
-        return render.json(status).status(400).toFuture
+        render.json(status).status(400).toFuture
       }
     }
 

@@ -18,16 +18,15 @@ case class Softmax(
   private var totalDenominator: Double = 0
 
   def softmaxTemperature(_count: Double): Double = {
-    /**
-      Calculate the temperature given '_count' argument.
-      */
     var count: Double = 0
     if (_count > 0) {
         count = _count
     }
 
-    /** Add 1 and a small fractional value
-      to prevent divide by zero errors and values >= 1 */
+    /**
+      Add 1 and a small fractional value
+      to prevent divide by zero errors and values >= 1
+      */
     this.softmaxTempNumerator / scala.math.log(count + (1 + .1e-7))
   }
 
@@ -92,9 +91,33 @@ case class Softmax(
   }
 
   def selectFromSubset(arms: List[String]): String = {
-    /** TODO*/
-    ""
+    val lenArms = arms.length
+    if (lenArms == 1) {
+      val arm: String = arms.head
+      this.updatePulls(arm, 1)
+      return arm
+    } else if (lenArms == 0) {
+      return ""
+    }
+
+    val indexes = arms.map(name => {this.names.indexOf(name)}).filter(idx => idx >= 0)
+    var nSubset: List[String] = List()
+    var rSubset: List[Double] = List()
+    var pSubset: List[Double] = List()
+
+
+    for (idx <- indexes) {
+      nSubset ::= this.names(idx)
+      rSubset ::= this.ratios(idx)
+      pSubset ::= this.pulls(idx)
+    }
+    val temperature: Double = this.softmaxTemperature(pSubset.sum)
+    val probabilities: List[Double] = this.probsFromRatios(rSubset, temperature)
+    val arm: String = ListUtils.categoricalChoice(probabilities, nSubset)
+    this.updatePulls(arm, 1)
+    arm
   }
+
   def initialize(names: List[String]) = {
     for (name <- names) {
       this.addArm(name)
